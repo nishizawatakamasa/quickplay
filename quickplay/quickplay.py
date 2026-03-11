@@ -5,6 +5,7 @@ import time
 import unicodedata as ud
 from pathlib import Path
 from typing import Callable, Generator
+from urllib.parse import urljoin, urlsplit, urlunsplit
 
 import pandas as pd
 from playwright.sync_api import sync_playwright, Page, ElementHandle, Route
@@ -62,6 +63,56 @@ class PlayPage:
         if elem is None:
             return None
         return a.strip() if (a := elem.get_attribute(attr_name)) else a
+    
+
+
+
+    def url(self, elem: ElementHandle | None) -> str | None:
+        """
+        要素のリンクを絶対URLに正規化して返す
+        無効リンクはNone
+        """
+
+        href = self.attr("href", elem)
+
+        if not href:
+            return None
+
+        href = href.strip()
+
+        # 無効リンク除外
+        if re.search(r"(?i)^(?:#|javascript:|mailto:|tel:|data:)", href):
+            return None
+
+        # protocol-relative URL
+        if re.search(r'^//', href):
+            href = "https:" + href
+
+
+        # 絶対URLに正規化
+        url = urljoin(self._page.url, href)
+
+        # URLを構造分解
+        parts = urlsplit(url)
+
+        # path の // を整理
+        path = re.sub(r"/{2,}", "/", parts.path)
+
+        # URL再構築
+        url = urlunsplit((
+            parts.scheme,
+            parts.netloc,
+            path,
+            parts.query,
+            parts.fragment
+        ))
+
+        return url
+    
+    
+    
+
+    
 
     def goto(self, url: str | None) -> bool:
         if not url:
@@ -157,8 +208,6 @@ class LocalPage:
             return None
         a = node.attributes.get(attr_name)
         return a.strip() if a else a
-
-
 
 
 class BasePaths:

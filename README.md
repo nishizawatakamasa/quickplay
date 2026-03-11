@@ -51,7 +51,7 @@ def scrape(page: Page) -> None:
     p = PlayPage(page)
     p.goto('https://www.foobarbaz1.jp')
 
-    pref_urls = [p.attr('href', e) for e in p.ss('li.item > ul > li > a')]
+    pref_urls = [p.url(e) for e in p.ss('li.item > ul > li > a')]
 
     classroom_urls = []
     for i, url in enumerate(pref_urls, 1):
@@ -59,7 +59,7 @@ def scrape(page: Page) -> None:
         if not p.goto(url):
             continue
         sleep_between(1, 2)
-        links = [p.attr('href', e) for e in p.ss('.school-area h4 a')]
+        links = [p.url(e) for e in p.ss('.school-area h4 a')]
         classroom_urls.extend(links)
 
     for i, url in enumerate(classroom_urls, 1):
@@ -96,7 +96,7 @@ def scrape(page: Page) -> None:
     p = PlayPage(page)
     p.goto('https://www.foobarbaz1.jp')
 
-    item_urls = [p.attr('href', e) for e in p.ss('ul.items > li > a')]
+    item_urls = [p.url(e) for e in p.ss('ul.items > li > a')]
 
     for i, url in enumerate(item_urls, 1):
         print(f'{i}/{len(item_urls)} item_urls')
