@@ -253,7 +253,7 @@ def browse(
         headless:         ヘッドレスモードにするか。
         channel:          ブラウザチャンネル（"chrome" など）。
         viewport:         {'width': 1920, 'height': 1080} など。Noneなら未設定。
-        user_agent:       User-Agent文字列。Noneなら未設定。
+        user_agent:       User-Agent文字列。Noneなら未設定。chrome://version/で確認できる。
         accept_language:  Accept-Languageヘッダー。Noneなら未設定。
         timeout:          デフォルトタイムアウト（ミリ秒）。
         block_resources:  ブロックするリソースタイプ。例: {'image'}。

@@ -42,8 +42,6 @@ uv run playwright install chromium
 ## Basic Usage - 基本的な使い方
 
 ```python
-import random
-import time
 from playwright.sync_api import Page
 from quickplay import PlayPage, BasePaths, browse, append_csv, sleep_between
 

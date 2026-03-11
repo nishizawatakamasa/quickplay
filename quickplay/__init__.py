@@ -1,1 +1,10 @@
-from .quickpage import PlayPage, BasePaths, sleep_between, append_csv, run_scraper
+from .quickplay import (
+    PlayPage,
+    LocalPage,
+    BasePaths,
+    sleep_between,
+    append_csv,
+    html_filename,
+    save_html,
+    browse,
+)
