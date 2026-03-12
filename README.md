@@ -7,7 +7,7 @@ quickplayはPlaywrightとselectolaxをベースにしたスクレイピングユ
 
 - **PlayPage** — Playwright `Page` のラッパー。ライブスクレイピング用。
 - **LocalPage** — 保存済みHTMLファイルをPlayPage風に操作するクラス。selectolaxベースで高速。
-- ユーティリティ関数群 — `browse` / `save_html` / `append_csv` / `html_filename` / `sleep_between`
+- その他ユーティリティ関数群
 
 ## Requirements - 必要条件
 
@@ -38,6 +38,53 @@ python -m playwright install chromium
 ```
 uv run playwright install chromium
 ```
+
+
+
+
+## Quick Reference - 主要メソッド一覧
+
+### PlayPage のメソッド（スクレイピング中に使用）
+
+- **`ss(selector: str) -> list[ElementHandle]`**  
+  指定したCSSセレクタにマッチする**すべての要素**をリストで返します。  
+  *例:* `links = p.ss('a')`
+
+- **`s(selector: str) -> ElementHandle | None`**  
+  指定したCSSセレクタにマッチする**最初の要素**を返します。見つからなければ `None`。  
+  *例:* `title_elem = p.s('h1')`
+
+- **`text(elem: ElementHandle | None) -> str | None`**  
+  要素からテキスト内容を取得します（前後の空白は除去されます）。  
+  *例:* `title = p.text(p.s('h1'))`
+
+- **`attr(attr_name: str, elem: ElementHandle | None) -> str | None`**  
+  要素の指定された属性値を取得します。  
+  *例:* `href = p.attr('href', link_elem)`
+
+- **`url(elem: ElementHandle | None) -> str | None`**  
+  リンク要素 (`<a>`) の `href` を**絶対URL**に正規化して返します。無効なリンク（`javascript:` など）は除外されます。  
+  *例:* `next_url = p.url(p.s('a.next'))`
+
+- **`goto(url: str | None) -> bool`**  
+  指定したURLに移動します。成功すれば `True`、失敗すれば `False` を返します。  
+  *例:* `if p.goto('https://example.com'): ...`
+
+### ユーティリティ関数
+
+- **`sleep_between(a: float, b: float) -> None`**  
+  `a` 〜 `b` 秒の間でランダムに待機します。サーバーに負荷をかけないための基本的なマナーです。  
+  *例:* `sleep_between(1, 2)`
+
+- **`append_csv(path: Path | str, row: dict) -> None`**  
+  `dict` 形式のデータを1行としてCSVファイルに追記します。ファイルが存在しない場合はヘッダーも自動で書き込みます。  
+  *例:* `append_csv('data.csv', {'name': '太郎', 'age': 20})`
+
+- **`browse(fn: Callable[[Page], None], ...) -> None`**  
+  Playwrightのブラウザを起動し、引数で渡した関数を実行します。`headless` や `user_agent` などのオプションを指定できます。  
+  *例:* `browse(scrape, headless=True, block_resources={'image'})`
+
+
 
 ## Basic Usage - 基本的な使い方
 

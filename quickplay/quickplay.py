@@ -259,7 +259,7 @@ def html_filename(title: str) -> str:
     return f"{sanitized}__{suffix}.html"
 
 
-def save_html(folder: Path | str, filename: str, html: str) -> Path:
+def save_html(folder: Path | str, filename: str, html: str) -> Path | None:
     """HTMLをフォルダに保存する。
 
     Args:
@@ -268,7 +268,7 @@ def save_html(folder: Path | str, filename: str, html: str) -> Path:
         html:     保存するHTML文字列（page.content() など）
 
     Returns:
-        保存したファイルのPathを返す。
+        保存したファイルのPathを返す。失敗した場合はNoneを返す。
 
     Usage:
         # C案方式のファイル名を使う場合
@@ -277,11 +277,15 @@ def save_html(folder: Path | str, filename: str, html: str) -> Path:
         # 自前でファイル名を決める場合
         save_html(paths.from_here("html"), f"item_{i:04d}.html", page.content())
     """
-    folder = Path(folder)
-    folder.mkdir(parents=True, exist_ok=True)
-    filepath = folder / filename
-    filepath.write_text(html, encoding="utf-8")
-    return filepath
+    try:
+        folder = Path(folder)
+        folder.mkdir(parents=True, exist_ok=True)
+        filepath = folder / filename
+        filepath.write_text(html, encoding="utf-8")
+        return filepath
+    except Exception as e:
+        print(f"{type(e).__name__}: {e}")
+        return None
 
 
 def browse(
