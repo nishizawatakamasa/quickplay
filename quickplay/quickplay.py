@@ -4,7 +4,7 @@ import re
 import time
 import unicodedata as ud
 from pathlib import Path
-from typing import Callable, Generator
+from typing import Callable
 from urllib.parse import urljoin, urlsplit, urlunsplit
 
 import pandas as pd
@@ -20,7 +20,7 @@ class PlayPage:
         return elems[0] if elems else None
 
     def re_filter(self, pattern: str, elems: list[ElementHandle]) -> list[ElementHandle]:
-        return [elem for elem in elems if (t := self.text(elem)) is not None and re.search(pattern, ud.normalize("NFKC", t))]
+        return [elem for elem in elems if (t := self.text(elem)) is not None and re.search(pattern, ud.normalize('NFKC', t))]
 
     def ss(self, selector: str) -> list[ElementHandle]:
         return self._page.query_selector_all(selector)
@@ -47,72 +47,37 @@ class PlayPage:
         return self.first(self.ss_re_in(selector, pattern, from_))
 
     def next(self, elem: ElementHandle | None) -> ElementHandle | None:
-        return None if elem is None else elem.evaluate_handle("el => el.nextElementSibling").as_element()
+        return None if elem is None else elem.evaluate_handle('el => el.nextElementSibling').as_element()
 
     def text(self, elem: ElementHandle | None) -> str | None:
         if elem is None:
             return None
-        return t.strip() if (t := elem.evaluate("el => el.textContent")) else t
+        return t.strip() if (t := elem.evaluate('el => el.textContent')) else t
 
     def inner_text(self, elem: ElementHandle | None) -> str | None:
         if elem is None:
             return None
-        return t.strip() if (t := elem.evaluate("el => el.innerText")) else t
+        return t.strip() if (t := elem.evaluate('el => el.innerText')) else t
 
     def attr(self, attr_name: str, elem: ElementHandle | None) -> str | None:
         if elem is None:
             return None
         return a.strip() if (a := elem.get_attribute(attr_name)) else a
-    
-
-
 
     def url(self, elem: ElementHandle | None) -> str | None:
-        """
-        要素のリンクを絶対URLに正規化して返す
-        無効リンクはNone
-        """
-
-        href = self.attr("href", elem)
-
+        href = self.attr('href', elem)
         if not href:
             return None
-
         href = href.strip()
-
-        # 無効リンク除外
-        if re.search(r"(?i)^(?:#|javascript:|mailto:|tel:|data:)", href):
+        if re.search(r'(?i)^(?:#|javascript:|mailto:|tel:|data:)', href):
             return None
-
-        # protocol-relative URL
-        if re.search(r'^//', href):
-            href = "https:" + href
-
-
-        # 絶対URLに正規化
         url = urljoin(self._page.url, href)
-
-        # URLを構造分解
         parts = urlsplit(url)
-
-        # path の // を整理
-        path = re.sub(r"/{2,}", "/", parts.path)
-
-        # URL再構築
-        url = urlunsplit((
-            parts.scheme,
-            parts.netloc,
-            path,
-            parts.query,
-            parts.fragment
-        ))
-
+        if not parts.netloc:
+            return None
+        parts = parts._replace(path=re.sub(r'/{2,}', '/', parts.path))
+        url = urlunsplit(parts)
         return url
-    
-    
-    
-
-    
 
     def goto(self, url: str | None) -> bool:
         if not url:
@@ -121,59 +86,39 @@ class PlayPage:
             self._page.goto(url)
             return True
         except Exception as e:
-            print(f"{type(e).__name__}: {e}")
+            print(f'{type(e).__name__}: {e}')
             return False
 
     def wait(self, selector: str, timeout: int = 15000) -> ElementHandle | None:
         try:
             return self._page.wait_for_selector(selector, timeout=timeout)
         except Exception as e:
-            print(f"{type(e).__name__}: {e}")
+            print(f'{type(e).__name__}: {e}')
             return None
 
-
 class LocalPage:
-    """保存済みHTMLファイルをPlayPage風に操作するクラス。
-
-    PlayPageと同様に一度インスタンス化し、gotoでファイルを切り替えながら使う。
-
-    Usage:
-        lp = LocalPage()
-        lp.goto("foo.html")
-        nodes = lp.ss("div.item")
-        node  = lp.s("h1")
-        text  = lp.text(node)
-        href  = lp.attr("href", node)
-
-        lp.goto("bar.html")  # 別ファイルに切り替え
-    """
-
     def __init__(self) -> None:
         self._tree: HTMLParser | None = None
 
     def goto(self, path: Path | str) -> bool:
         try:
-            self._tree = HTMLParser(Path(path).read_text(encoding="utf-8"))
+            self._tree = HTMLParser(Path(path).read_text(encoding='utf-8'))
             return True
         except Exception as e:
-            print(f"{type(e).__name__}: {e}")
+            print(f'{type(e).__name__}: {e}')
             return False
-
-    # ── 内部ユーティリティ ──────────────────────────────────────
 
     def first(self, nodes: list[Node]) -> Node | None:
         return nodes[0] if nodes else None
 
     def re_filter(self, pattern: str, nodes: list[Node]) -> list[Node]:
-        return [n for n in nodes if (t := self.text(n)) is not None and re.search(pattern, ud.normalize("NFKC", t))]
-
-    # ── セレクタ ────────────────────────────────────────────────
+        return [n for n in nodes if (t := self.text(n)) is not None and re.search(pattern, ud.normalize('NFKC', t))]
 
     def ss(self, selector: str) -> list[Node]:
         return self._tree.css(selector) if self._tree else []
 
     def s(self, selector: str) -> Node | None:
-        return self._tree.css_first(selector) if self._tree else None
+        return self.first(self.ss(selector))
 
     def ss_re(self, selector: str, pattern: str) -> list[Node]:
         return self.re_filter(pattern, self.ss(selector))
@@ -185,7 +130,7 @@ class LocalPage:
         return [] if from_ is None else from_.css(selector)
 
     def s_in(self, selector: str, from_: Node | None) -> Node | None:
-        return None if from_ is None else from_.css_first(selector)
+        return self.first(self.ss_in(selector, from_))
 
     def ss_re_in(self, selector: str, pattern: str, from_: Node | None) -> list[Node]:
         return self.re_filter(pattern, self.ss_in(selector, from_))
@@ -193,118 +138,70 @@ class LocalPage:
     def s_re_in(self, selector: str, pattern: str, from_: Node | None) -> Node | None:
         return self.first(self.ss_re_in(selector, pattern, from_))
 
-    # ── ノード操作 ──────────────────────────────────────────────
-
     def next(self, node: Node | None) -> Node | None:
         return None if node is None else node.next
 
     def text(self, node: Node | None) -> str | None:
         if node is None:
             return None
-        return node.text(deep=True, strip=True)
+        return node.text(strip=True)
 
     def attr(self, attr_name: str, node: Node | None) -> str | None:
         if node is None:
             return None
-        a = node.attributes.get(attr_name)
-        return a.strip() if a else a
+        return a.strip() if (a := node.attributes.get(attr_name)) else a
 
-
-class BasePaths:
-    """呼び出し元ファイルを基準にしたパス解決。
-
-    Usage:
-        paths = BasePaths(__file__)
-        csv_path = paths.from_here('data/out.csv')
-    """
-
+class Here:
     def __init__(self, file: str) -> None:
         self._base = Path(file).resolve().parent
 
-    def from_here(self, path: str) -> Path:
-        """baseを起点に連結した絶対Pathを返す。"""
+    def __call__(self, path: str) -> Path:
         return self._base / path
 
-
 def sleep_between(a: float, b: float) -> None:
-    """a〜b秒のランダムスリープ。"""
     time.sleep(random.uniform(a, b))
 
-
 def append_csv(path: Path | str, row: dict) -> None:
-    """dictを1行としてCSVに追記する。ファイルがなければheaderも書く。"""
+    '''dictを1行としてCSVに追記する。ファイルがなければheaderも書く。'''
     p = Path(path)
     pd.DataFrame([row]).to_csv(
         p,
-        mode="a",
+        mode='a',
         index=False,
         header=not p.exists(),
-        encoding="utf-8-sig",
+        encoding='utf-8-sig',
     )
 
+def hash_filename(key: str, ext: str = 'html') -> str:
+    '''キー文字列からハッシュファイル名を生成する。'''
+    return hashlib.md5(key.encode()).hexdigest() + '.' + ext
 
-def html_filename(title: str) -> str:
-    """タイトル文字列からC案方式のファイル名を生成する。
-
-    - サニタイズした文字列（バイト数で180以内）＋MD5ハッシュ8文字
-    - 例: "example.com_item_page_2__a3f5c2d1.html"
-    """
-    if not title or not title.strip():
-        title = "untitled"
-    sanitized = re.sub(r'[\\/:*?"<>|\s]+', "_", title)
-    sanitized = sanitized.strip("_")
-    encoded = sanitized.encode("utf-8")[:180].decode("utf-8", errors="ignore")
-    sanitized = encoded.strip("_") or "untitled"
-    suffix = hashlib.md5(title.encode()).hexdigest()[:8]
-    return f"{sanitized}__{suffix}.html"
-
-
-def save_html(folder: Path | str, filename: str, html: str) -> Path | None:
-    """HTMLをフォルダに保存する。
-
-    Args:
-        folder:   保存先フォルダ（なければ作成）
-        filename: ファイル名。html_filename()を使うかそのまま渡すか呼び出し側で決める。
-        html:     保存するHTML文字列（page.content() など）
-
-    Returns:
-        保存したファイルのPathを返す。失敗した場合はNoneを返す。
-
-    Usage:
-        # C案方式のファイル名を使う場合
-        save_html(paths.from_here("html"), html_filename(page.url), page.content())
-
-        # 自前でファイル名を決める場合
-        save_html(paths.from_here("html"), f"item_{i:04d}.html", page.content())
-    """
+def save_html(filepath: Path, html: str) -> None:
+    '''HTMLをファイルに保存する。'''
     try:
-        folder = Path(folder)
-        folder.mkdir(parents=True, exist_ok=True)
-        filepath = folder / filename
-        filepath.write_text(html, encoding="utf-8")
-        return filepath
+        filepath.write_text(html, encoding="utf-8", errors="replace")
+        return True
     except Exception as e:
-        print(f"{type(e).__name__}: {e}")
-        return None
-
+        print(f'{type(e).__name__}: {e}')
+        return False
 
 def browse(
     fn: Callable[[Page], None],
     *,
     headless: bool = False,
-    channel: str = "chrome",
-    viewport: dict | None = {"width": 1920, "height": 1080},
+    channel: str = 'chrome',
+    viewport: dict | None = {'width': 1920, 'height': 1080},
     user_agent: str | None = None,
-    accept_language: str | None = "ja-JP,ja;q=0.9",
+    accept_language: str | None = 'ja-JP,ja;q=0.9',
     timeout: int = 15000,
     block_resources: set[str] | None = None,
 ) -> None:
-    """Playwrightの定型起動をまとめたランナー。
+    '''Playwrightの定型起動をまとめたランナー。
 
     Args:
         fn:               scrape(page) のような関数を渡す。
         headless:         ヘッドレスモードにするか。
-        channel:          ブラウザチャンネル（"chrome" など）。
+        channel:          ブラウザチャンネル（'chrome' など）。
         viewport:         {'width': 1920, 'height': 1080} など。Noneなら未設定。
         user_agent:       User-Agent文字列。Noneなら未設定。chrome://version/で確認できる。
         accept_language:  Accept-Languageヘッダー。Noneなら未設定。
@@ -313,14 +210,14 @@ def browse(
 
     Usage:
         browse(scrape, user_agent='Mozilla/5.0 ...', block_resources={'image', 'font'})
-    """
+    '''
     context_kwargs: dict = {}
     if viewport is not None:
-        context_kwargs["viewport"] = viewport
+        context_kwargs['viewport'] = viewport
     if user_agent is not None:
-        context_kwargs["user_agent"] = user_agent
+        context_kwargs['user_agent'] = user_agent
     if accept_language is not None:
-        context_kwargs["extra_http_headers"] = {"Accept-Language": accept_language}
+        context_kwargs['extra_http_headers'] = {'Accept-Language': accept_language}
 
     with sync_playwright() as pw:
         with pw.chromium.launch(headless=headless, channel=channel) as browser:
@@ -333,5 +230,5 @@ def browse(
                             route.abort()
                         else:
                             route.continue_()
-                    page.route("**/*", handler)
+                    page.route('**/*', handler)
                 fn(page)
