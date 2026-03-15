@@ -5,8 +5,8 @@
 quickplay is a scraping utility library built on Playwright and selectolax.
 quickplayはPlaywrightとselectolaxをベースにしたスクレイピングユーティリティライブラリです。
 
-- **PlayPage** — Playwright `Page` のラッパー。ライブスクレイピング用。
-- **LocalPage** — 保存済みHTMLファイルをPlayPage風に操作するクラス。selectolaxベースで高速。
+- **PlayPage** — Playwright `Page` のラッパー。スクレイピング用。
+- **SelectParser** — selectolax `HTMLParser` のラッパー。ローカル抽出用。
 - その他ユーティリティ関数群
 
 ## Requirements - 必要条件
@@ -89,12 +89,11 @@ uv run playwright install chromium
 ## Basic Usage - 基本的な使い方
 
 ```python
-from playwright.sync_api import Page
-from quickplay import PlayPage, BasePaths, browse, append_csv, sleep_between
+from quickplay import PlayPage, FromHere, browse, append_csv, sleep_between
 
-paths = BasePaths(__file__)
+fh = FromHere(__file__)
 
-def scrape(page: Page) -> None:
+def scrape(page):
     p = PlayPage(page)
     p.goto('https://www.foobarbaz1.jp')
 
@@ -121,25 +120,24 @@ def scrape(page: Page) -> None:
             '電話番号': p.text(p.s('.item .phoneNumber')),
             'HP': p.attr('href', p.s_in('a', p.next(p.s_re('th', 'ホームページ')))),
         }
-        append_csv(paths.from_here('out.csv'), row)
+        append_csv(fh('csv/out.csv'), row)
 
 if __name__ == '__main__':
     browse(
         scrape,
         user_agent='Mozilla/5.0 ...',
-        block_resources={'image', 'font'},
+        block_resources={'image'},
     )
 ```
 
 ## Save HTML while scraping - スクレイピングしながらHTMLを保存する
 
 ```python
-from playwright.sync_api import Page
-from quickplay import PlayPage, BasePaths, browse, save_html, html_filename, sleep_between
+from quickplay import PlayPage, FromHere, browse, save_html, hash_name, sleep_between
 
-paths = BasePaths(__file__)
+fh = FromHere(__file__)
 
-def scrape(page: Page) -> None:
+def scrape(page):
     p = PlayPage(page)
     p.goto('https://www.foobarbaz1.jp')
 
@@ -150,21 +148,21 @@ def scrape(page: Page) -> None:
         if not p.goto(url):
             continue
         sleep_between(1, 2)
-        save_html(paths.from_here('html'), html_filename(page.url), page.content())
+        save_html(fh('html') / f'{hash_name(page.url)}.html', page.content())
 
 if __name__ == '__main__':
-    browse(scrape, block_resources={'image', 'font'})
+    browse(scrape, block_resources={'image'})
 ```
 
 ## Scrape from local HTML files - 保存済みHTMLからスクレイピングしてCSVに出力する
 
 ```python
-from quickplay import LocalPage, BasePaths, append_csv
+from quickplay import SelectParser, FromHere, append_csv
 
-paths = BasePaths(__file__)
-p = LocalPage()
+fh = FromHere(__file__)
+p = SelectParser()
 
-for path in paths.from_here('html').glob('*.html'):
+for path in fh('html').glob('*.html'):
     if not p.goto(path):
         continue
     row = {
@@ -172,7 +170,7 @@ for path in paths.from_here('html').glob('*.html'):
         '価格':   p.text(p.s('span.price')),
         'HP':     p.attr('href', p.s_in('a', p.next(p.s_re('th', 'ホームページ')))),
     }
-    append_csv(paths.from_here('out.csv'), row)
+    append_csv(fh('csv/out.csv'), row)
 ```
 
 ## License - ライセンス

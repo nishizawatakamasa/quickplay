@@ -96,13 +96,13 @@ class PlayPage:
             print(f'{type(e).__name__}: {e}')
             return None
 
-class LocalPage:
+class SelectParser:
     def __init__(self) -> None:
-        self._tree: HTMLParser | None = None
+        self._parser: HTMLParser | None = None
 
-    def goto(self, path: Path | str) -> bool:
+    def goto(self, html_path: Path | str) -> bool:
         try:
-            self._tree = HTMLParser(Path(path).read_text(encoding='utf-8'))
+            self._parser = HTMLParser(Path(html_path).read_text(encoding='utf-8'))
             return True
         except Exception as e:
             print(f'{type(e).__name__}: {e}')
@@ -115,7 +115,7 @@ class LocalPage:
         return [n for n in nodes if (t := self.text(n)) is not None and re.search(pattern, ud.normalize('NFKC', t))]
 
     def ss(self, selector: str) -> list[Node]:
-        return self._tree.css(selector) if self._tree else []
+        return self._parser.css(selector) if self._parser else []
 
     def s(self, selector: str) -> Node | None:
         return self.first(self.ss(selector))
@@ -151,7 +151,7 @@ class LocalPage:
             return None
         return a.strip() if (a := node.attributes.get(attr_name)) else a
 
-class Here:
+class FromHere:
     def __init__(self, file: str) -> None:
         self._base = Path(file).resolve().parent
 
@@ -172,11 +172,11 @@ def append_csv(path: Path | str, row: dict) -> None:
         encoding='utf-8-sig',
     )
 
-def hash_filename(key: str, ext: str = 'html') -> str:
-    '''キー文字列からハッシュファイル名を生成する。'''
-    return hashlib.md5(key.encode()).hexdigest() + '.' + ext
+def hash_name(key: str) -> str:
+    '''キー文字列からハッシュ名を生成する。'''
+    return hashlib.md5(key.encode()).hexdigest()
 
-def save_html(filepath: Path, html: str) -> None:
+def save_html(filepath: Path, html: str) -> bool:
     '''HTMLをファイルに保存する。'''
     try:
         filepath.write_text(html, encoding="utf-8", errors="replace")
