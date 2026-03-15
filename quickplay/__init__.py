@@ -1,10 +1,10 @@
 from .quickplay import (
     PlayPage,
-    LocalPage,
-    BasePaths,
+    SelectParser,
+    FromHere,
     sleep_between,
     append_csv,
-    html_filename,
+    hash_name,
     save_html,
     browse,
 )
