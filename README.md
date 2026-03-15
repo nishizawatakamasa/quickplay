@@ -118,7 +118,7 @@ def scrape(page):
             '教室名': p.text(p.s('h1 .text01')),
             '住所': p.text(p.s('.item .mapText')),
             '電話番号': p.text(p.s('.item .phoneNumber')),
-            'HP': p.attr('href', p.s_in('a', p.next(p.s_re('th', 'ホームページ')))),
+            'HP': p.url(p.s_in('a', p.next(p.s_re('th', 'ホームページ')))),
         }
         append_csv(fh('csv/out.csv'), row)
 
@@ -168,7 +168,7 @@ for path in fh('html').glob('*.html'):
     row = {
         '商品名': p.text(p.s('h1.product-name')),
         '価格':   p.text(p.s('span.price')),
-        'HP':     p.attr('href', p.s_in('a', p.next(p.s_re('th', 'ホームページ')))),
+        'HP':     p.url(p.s_in('a', p.next(p.s_re('th', 'ホームページ')))),
     }
     append_csv(fh('csv/out.csv'), row)
 ```
