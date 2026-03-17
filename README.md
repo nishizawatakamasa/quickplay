@@ -7,13 +7,15 @@ quickplayはPlaywrightとselectolaxをベースにしたスクレイピングユ
 
 - **PlayPage** — Playwright `Page` のラッパー。スクレイピング用。
 - **SelectParser** — selectolax `HTMLParser` のラッパー。ローカル抽出用。
+- **browse()** — Playwright（Chromium）起動ランナー。
+- **browse_camou()** — Camoufox（Firefox）起動ランナー。bot検知対策向け。
 - その他ユーティリティ関数群
 
 ## Requirements - 必要条件
 
 - Python 3.12 or higher
-- Libraries: playwright, selectolax, pandas（自動インストール）
-- Browser binary（別途インストールが必要）
+- Libraries: playwright, selectolax, pandas, camoufox（自動インストール）
+- Browser binaries（別途インストールが必要）
 
 ## Installation - インストール
 
@@ -29,16 +31,29 @@ uv add quickplay
 
 ブラウザバイナリを別途インストールしてください。
 
-### pip
+### Playwright（Chromium）
+
+#### pip
 ```
 python -m playwright install chromium
 ```
 
-### uv
+#### uv
 ```
 uv run playwright install chromium
 ```
 
+### Camoufox（Firefox）
+
+#### pip
+```
+camoufox fetch
+```
+
+#### uv
+```
+uv run camoufox fetch
+```
 
 
 
@@ -84,12 +99,16 @@ uv run playwright install chromium
   Playwrightのブラウザを起動し、引数で渡した関数を実行します。`headless` や `user_agent` などのオプションを指定できます。  
   *例:* `browse(scrape, headless=True, block_resources={'image'})`
 
+- **`browse_camou(fn: Callable[[Page], None], ...) -> None`**  
+  Camoufox（Firefox）でブラウザを起動し、引数で渡した関数を実行します。bot検知が厳しいサイト向け。  
+  *例:* `browse_camou(scrape, humanize=True, block_images=True)`
+
 
 
 ## Basic Usage - 基本的な使い方
 
 ```python
-from quickplay import PlayPage, FromHere, browse, append_csv, sleep_between
+from quickplay import *
 
 fh = FromHere(__file__)
 
@@ -113,14 +132,14 @@ def scrape(page):
         if not p.goto(url):
             continue
         sleep_between(1, 2)
-        row = {
+        append_csv(fh('csv/out.csv'), {
             'URL': page.url,
             '教室名': p.text(p.s('h1 .text01')),
             '住所': p.text(p.s('.item .mapText')),
             '電話番号': p.text(p.s('.item .phoneNumber')),
             'HP': p.url(p.s_in('a', p.next(p.s_re('th', 'ホームページ')))),
-        }
-        append_csv(fh('csv/out.csv'), row)
+        })
+
 
 if __name__ == '__main__':
     browse(
@@ -133,7 +152,7 @@ if __name__ == '__main__':
 ## Save HTML while scraping - スクレイピングしながらHTMLを保存する
 
 ```python
-from quickplay import PlayPage, FromHere, browse, save_html, hash_name, sleep_between
+from quickplay import *
 
 fh = FromHere(__file__)
 
@@ -148,7 +167,13 @@ def scrape(page):
         if not p.goto(url):
             continue
         sleep_between(1, 2)
-        save_html(fh('html') / f'{hash_name(page.url)}.html', page.content())
+        file_name = f'{hash_name(url)}.html'
+        if not save_html(fh('html') / file_name, page.content()):
+            continue
+        append_csv(fh('outurlhtml.csv'), {
+            'URL': url,
+            'HTML': file_name,
+        })
 
 if __name__ == '__main__':
     browse(scrape, block_resources={'image'})
@@ -157,20 +182,23 @@ if __name__ == '__main__':
 ## Scrape from local HTML files - 保存済みHTMLからスクレイピングしてCSVに出力する
 
 ```python
-from quickplay import SelectParser, FromHere, append_csv
+import pandas as pd
+
+from quickplay import *
 
 fh = FromHere(__file__)
 p = SelectParser()
 
-for path in fh('html').glob('*.html'):
+df = pd.read_csv(fh('outurlhtml.csv'))
+for url, path in zip(df['URL'], df['HTML']):
     if not p.goto(path):
         continue
-    row = {
-        '商品名': p.text(p.s('h1.product-name')),
-        '価格':   p.text(p.s('span.price')),
-        'HP':     p.url(p.s_in('a', p.next(p.s_re('th', 'ホームページ')))),
-    }
-    append_csv(fh('csv/out.csv'), row)
+    append_csv(fh('outhtml.csv'), {
+        'URL': url,
+        '教室名': p.text(p.s('h1 .text02')),
+        '住所': p.text(p.s('.item .mapText')),
+    })
+    print(f'{url}')
 ```
 
 ## License - ライセンス
