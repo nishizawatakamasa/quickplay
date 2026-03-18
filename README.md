@@ -8,8 +8,8 @@ quickplayはPlaywrightとselectolaxをベースにしたスクレイピングユ
 - **PlayPage** — Playwright `Page` のラッパー。スクレイピング用。
 - **SelectParser** — selectolax `HTMLParser` のラッパー。ローカル抽出用。
 - **browse()** — Playwright（Chromium）起動ランナー。
-- **browse_camou()** — Camoufox（Firefox）起動ランナー。bot検知対策向け。
-- その他ユーティリティ関数群
+- **browse_camoufox()** — Camoufox（Firefox）起動ランナー。bot検知対策向け。
+- その他ユーティリティ — FromHere, sleep_between, append_csv, hash_name, save_html
 
 ## Requirements - 必要条件
 
@@ -24,7 +24,7 @@ quickplayはPlaywrightとselectolaxをベースにしたスクレイピングユ
 pip install quickplay
 ```
 
-### uv (recommended)
+### uv (推奨)
 ```
 uv add quickplay
 ```
@@ -38,7 +38,7 @@ uv add quickplay
 python -m playwright install chromium
 ```
 
-#### uv
+#### uv (推奨)
 ```
 uv run playwright install chromium
 ```
@@ -50,7 +50,7 @@ uv run playwright install chromium
 camoufox fetch
 ```
 
-#### uv
+#### uv (推奨)
 ```
 uv run camoufox fetch
 ```
@@ -97,11 +97,62 @@ uv run camoufox fetch
 
 - **`browse(fn: Callable[[Page], None], ...) -> None`**  
   Playwrightのブラウザを起動し、引数で渡した関数を実行します。`headless` や `user_agent` などのオプションを指定できます。  
-  *例:* `browse(scrape, headless=True, block_resources={'image'})`
+  *例:* `browse(scrape, headless=True, block_resources={'image'})`  
+  *引数:*
+  ```py
+  def browse(
+      # scrape(page) のような関数を渡す。
+      fn: Callable[[Page], None],
+      *,
+      # ヘッドレスモードにするか。
+      headless: bool = False,
+      # ブラウザチャンネル（'chrome' など）。
+      channel: str = 'chrome',
+      # {'width': 1920, 'height': 1080} など。Noneなら未設定。
+      viewport: dict | None = {'width': 1920, 'height': 1080},
+      # User-Agent文字列。Noneなら未設定。chrome://version/で確認できる。
+      user_agent: str | None = None,
+      # Accept-Languageヘッダー。Noneなら未設定。
+      accept_language: str | None = 'ja-JP,ja;q=0.9',
+      # デフォルトタイムアウト（ミリ秒）。
+      timeout: int = 15000,
+      # ブロックするリソースタイプ。例: {'image'}。
+      block_resources: set[str] | None = None,
+  ) -> None:
+  ```
 
-- **`browse_camou(fn: Callable[[Page], None], ...) -> None`**  
+- **`browse_camoufox(fn: Callable[[Page], None], ...) -> None`**  
   Camoufox（Firefox）でブラウザを起動し、引数で渡した関数を実行します。bot検知が厳しいサイト向け。  
-  *例:* `browse_camou(scrape, humanize=True, block_images=True)`
+  *例:* `browse_camoufox(scrape, humanize=True, block_images=True)`  
+    *引数:*
+  ```py
+  def browse_camoufox(
+      # scrape(page) のような関数を渡す。
+      fn: Callable[[Page], None],
+      *,
+      # ヘッドレスモードにするか。
+      headless: bool | Literal['virtual'] = False,
+      # ブラウザのロケール（言語・地域設定）を指定
+      # 英語サイト中心なら `'en-US,en'` への変更を検討
+      locale: str | list[str] | None = 'ja-JP,ja',
+      # カーソルの動きを人間らしく模倣するかどうか。
+      # `True`（デフォルト）: デフォルト設定（最大約1.5秒）で有効化。
+      # `False`: 無効。カーソルが瞬時に移動する。高速化したい場合やカーソル操作をしないスクレイピングに
+      # `float`: カーソル移動の最大秒数を指定して有効化。例: `2.0` なら最大2秒かけて移動。
+      humanize: bool | float = True,
+      # 画像リソースのリクエストをすべてブロックするかどうか。
+      # `False`（デフォルト）: 画像を読み込む。
+      # `True`: 画像をすべてブロック。
+      block_images: bool = False,
+      # `False`（デフォルト）: COOPを有効のまま。通常はこれでよい。
+      # `True`: COOPを無効化。主な用途はCloudflareのTurnstile（チェックボックス認証）の突破。
+      # 注意: セキュリティポリシーを緩める設定なので、必要な場合だけ使う。
+      disable_coop: bool = False,
+      # デフォルトタイムアウト（ミリ秒）。
+      timeout: int = 15000,
+      **kwargs,
+  ) -> None:
+  ```
 
 
 
@@ -191,7 +242,7 @@ p = SelectParser()
 
 df = pd.read_csv(fh('outurlhtml.csv'))
 for url, path in zip(df['URL'], df['HTML']):
-    if not p.goto(path):
+    if not p.load(path):
         continue
     append_csv(fh('outhtml.csv'), {
         'URL': url,
