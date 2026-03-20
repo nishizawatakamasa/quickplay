@@ -9,7 +9,7 @@ quickplayはPlaywrightとselectolaxをベースにしたスクレイピングユ
 - **SelectParser** — selectolax `HTMLParser` のラッパー。ローカル抽出用。
 - **browse()** — Playwright（Chromium）起動ランナー。
 - **browse_camoufox()** — Camoufox（Firefox）起動ランナー。bot検知対策向け。
-- その他ユーティリティ — FromHere, sleep_between, append_csv, hash_name, save_html
+- その他ユーティリティ — FromHere, sleep_between, parallel, append_csv, write_csv, hash_name, save_html
 
 ## Requirements - 必要条件
 
@@ -20,11 +20,13 @@ quickplayはPlaywrightとselectolaxをベースにしたスクレイピングユ
 ## Installation - インストール
 
 ### pip
+
 ```
 pip install quickplay
 ```
 
 ### uv (推奨)
+
 ```
 uv add quickplay
 ```
@@ -34,11 +36,13 @@ uv add quickplay
 ### Playwright（Chromium）
 
 #### pip
+
 ```
 python -m playwright install chromium
 ```
 
 #### uv (推奨)
+
 ```
 uv run playwright install chromium
 ```
@@ -46,16 +50,16 @@ uv run playwright install chromium
 ### Camoufox（Firefox）
 
 #### pip
+
 ```
 camoufox fetch
 ```
 
 #### uv (推奨)
+
 ```
 uv run camoufox fetch
 ```
-
-
 
 ## Quick Reference - 主要メソッド一覧
 
@@ -63,42 +67,43 @@ uv run camoufox fetch
 
 - **`ss(selector: str) -> list[ElementHandle]`**  
   指定したCSSセレクタにマッチする**すべての要素**をリストで返します。  
-  *例:* `links = p.ss('a')`
+  _例:_ `links = p.ss('a')`
 
 - **`s(selector: str) -> ElementHandle | None`**  
   指定したCSSセレクタにマッチする**最初の要素**を返します。見つからなければ `None`。  
-  *例:* `title_elem = p.s('h1')`
+  _例:_ `title_elem = p.s('h1')`
 
 - **`text(elem: ElementHandle | None) -> str | None`**  
   要素からテキスト内容を取得します（前後の空白は除去されます）。  
-  *例:* `title = p.text(p.s('h1'))`
+  _例:_ `title = p.text(p.s('h1'))`
 
 - **`attr(attr_name: str, elem: ElementHandle | None) -> str | None`**  
   要素の指定された属性値を取得します。  
-  *例:* `href = p.attr('href', link_elem)`
+  _例:_ `href = p.attr('href', link_elem)`
 
 - **`url(elem: ElementHandle | None) -> str | None`**  
   リンク要素 (`<a>`) の `href` を**絶対URL**に正規化して返します。無効なリンク（`javascript:` など）は除外されます。  
-  *例:* `next_url = p.url(p.s('a.next'))`
+  _例:_ `next_url = p.url(p.s('a.next'))`
 
 - **`goto(url: str | None) -> bool`**  
   指定したURLに移動します。成功すれば `True`、失敗すれば `False` を返します。  
-  *例:* `if p.goto('https://example.com'): ...`
+  _例:_ `if p.goto('https://example.com'): ...`
 
 ### ユーティリティ関数
 
 - **`sleep_between(a: float, b: float) -> None`**  
   `a` 〜 `b` 秒の間でランダムに待機します。サーバーに負荷をかけないための基本的なマナーです。  
-  *例:* `sleep_between(1, 2)`
+  _例:_ `sleep_between(1, 2)`
 
 - **`append_csv(path: Path | str, row: dict) -> None`**  
   `dict` 形式のデータを1行としてCSVファイルに追記します。ファイルが存在しない場合はヘッダーも自動で書き込みます。  
-  *例:* `append_csv('data.csv', {'name': '太郎', 'age': 20})`
+  _例:_ `append_csv('data.csv', {'name': '太郎', 'age': 20})`
 
 - **`browse(fn: Callable[[Page], None], ...) -> None`**  
   Playwrightのブラウザを起動し、引数で渡した関数を実行します。`headless` や `user_agent` などのオプションを指定できます。  
-  *例:* `browse(scrape, headless=True, block_resources={'image'})`  
-  *引数:*
+  _例:_ `browse(scrape, headless=True, block_resources={'image'})`  
+  _引数:_
+
   ```py
   def browse(
       # scrape(page) のような関数を渡す。
@@ -123,8 +128,8 @@ uv run camoufox fetch
 
 - **`browse_camoufox(fn: Callable[[Page], None], ...) -> None`**  
   Camoufox（Firefox）でブラウザを起動し、引数で渡した関数を実行します。bot検知が厳しいサイト向け。  
-  *例:* `browse_camoufox(scrape, humanize=True, block_images=True)`  
-    *引数:*
+  _例:_ `browse_camoufox(scrape, humanize=True, block_images=True)`  
+   _引数:_
   ```py
   def browse_camoufox(
       # scrape(page) のような関数を渡す。
@@ -153,8 +158,6 @@ uv run camoufox fetch
       **kwargs,
   ) -> None:
   ```
-
-
 
 ## Basic Usage - 基本的な使い方
 
@@ -250,6 +253,38 @@ for url, path in zip(df['URL'], df['HTML']):
         '住所': p.text(p.s('.item .mapText')),
     })
     print(f'{url}')
+```
+
+## 保存済みHTMLから並列スクレイピングしてCSVに出力する
+
+```python
+import pandas as pd
+
+from quickplay import *
+
+fh = FromHere(__file__)
+
+def scrape():
+    df = pd.read_csv(fh('outurlhtml.csv'))
+    write_csv(
+        fh('outhtml.csv'),
+        extract(zip(df['URL'], df['HTML']))
+    )
+
+@parallel(max_workers=4)
+def extract(item):
+    p = SelectParser()
+    url, path = item
+    if not p.load(fh('html') / path):
+        return None
+    return {
+        'URL': url,
+        '教室名': p.text(p.s('h1 .text02')),
+        '住所': p.text(p.s('.item .mapText')),
+    }
+
+if __name__ == '__main__':
+    scrape()
 ```
 
 ## License - ライセンス

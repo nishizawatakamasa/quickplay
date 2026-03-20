@@ -3,8 +3,9 @@ import random
 import re
 import time
 import unicodedata as ud
+from concurrent.futures import ProcessPoolExecutor
 from pathlib import Path
-from typing import Callable, Literal
+from typing import Callable, Iterable, Literal, TypeVar
 from urllib.parse import urljoin, urlsplit, urlunsplit
 
 import pandas as pd
@@ -169,6 +170,16 @@ class FromHere:
 def sleep_between(a: float, b: float) -> None:
     time.sleep(random.uniform(a, b))
 
+T = TypeVar('T')
+def parallel(max_workers: int | None = None):
+    def decorator(fn: Callable[[T], dict | None]) -> Callable[[Iterable[T]], list[dict]]:
+        def wrapper(items: Iterable[T]) -> list[dict]:
+            with ProcessPoolExecutor(max_workers=max_workers) as executor:
+                results = list(executor.map(fn, items))
+            return [r for r in results if r is not None]
+        return wrapper
+    return decorator
+
 def append_csv(path: Path | str, row: dict) -> None:
     p = Path(path)
     pd.DataFrame([row]).to_csv(
@@ -176,6 +187,13 @@ def append_csv(path: Path | str, row: dict) -> None:
         mode='a',
         index=False,
         header=not p.exists(),
+        encoding='utf-8-sig',
+    )
+
+def write_csv(path: Path | str, rows: list[dict]) -> None:
+    pd.DataFrame(rows).to_csv(
+        Path(path),
+        index=False,
         encoding='utf-8-sig',
     )
 
