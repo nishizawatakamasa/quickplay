@@ -3,15 +3,14 @@ import random
 import re
 import time
 import unicodedata as ud
-from concurrent.futures import ProcessPoolExecutor
 from pathlib import Path
-from typing import Callable, Iterable, Literal, TypeVar
+from typing import Callable, Literal
 from urllib.parse import urljoin, urlsplit, urlunsplit
 
 import pandas as pd
 from camoufox.sync_api import Camoufox
 from playwright.sync_api import sync_playwright, Page, ElementHandle, Route
-from selectolax.parser import HTMLParser, Node
+from selectolax.lexbor import LexborHTMLParser, LexborNode
 
 
 class PlayPage:
@@ -67,10 +66,8 @@ class PlayPage:
         return a.strip() if (a := elem.get_attribute(attr_name)) else a
 
     def url(self, elem: ElementHandle | None) -> str | None:
-        href = self.attr('href', elem)
-        if not href:
+        if not (href := self.attr('href', elem)):
             return None
-        href = href.strip()
         if re.search(r'(?i)^(?:#|javascript:|mailto:|tel:|data:)', href):
             return None
         url = urljoin(self._page.url, href)
@@ -89,8 +86,11 @@ class PlayPage:
                 if (res := self._page.goto(url)) is not None:
                     if res.ok:
                         return True
-                    return False
-                reason = "response is None"
+                    if 400 <= res.status < 500:
+                        return False
+                    reason = f"status: {res.status}"
+                else:
+                    reason = "response is None"
             except Exception as e:
                 reason = f"{type(e).__name__}: {e}"
             print(f"[goto] {url} ({i+1}/{retry}) {reason}")
@@ -107,55 +107,66 @@ class PlayPage:
 
 class SelectParser:
     def __init__(self) -> None:
-        self._parser: HTMLParser | None = None
+        self._parser: LexborHTMLParser | None = None
+
+    @property
+    def parser(self) -> LexborHTMLParser | None:
+        return self._parser
 
     def load(self, html_path: Path | str) -> bool:
         try:
-            self._parser = HTMLParser(Path(html_path).read_text(encoding='utf-8'))
+            self._parser = LexborHTMLParser(Path(html_path).read_text(encoding='utf-8'))
             return True
         except Exception as e:
             print(f"[load error] {html_path} {type(e).__name__}: {e}")
             return False
 
-    def first(self, nodes: list[Node]) -> Node | None:
+    def first(self, nodes: list[LexborNode]) -> LexborNode | None:
         return nodes[0] if nodes else None
 
-    def re_filter(self, pattern: str, nodes: list[Node]) -> list[Node]:
-        return [n for n in nodes if (t := self.text(n)) is not None and re.search(pattern, ud.normalize('NFKC', t))]
+    def re_filter(self, pattern: str, nodes: list[LexborNode]) -> list[LexborNode]:
+        return [n for n in nodes if (t := self.txt(n)) is not None and re.search(pattern, ud.normalize('NFKC', t))]
 
-    def ss(self, selector: str) -> list[Node]:
+    def ss(self, selector: str) -> list[LexborNode]:
         return self._parser.css(selector) if self._parser else []
 
-    def s(self, selector: str) -> Node | None:
+    def s(self, selector: str) -> LexborNode | None:
         return self.first(self.ss(selector))
 
-    def ss_re(self, selector: str, pattern: str) -> list[Node]:
+    def ss_re(self, selector: str, pattern: str) -> list[LexborNode]:
         return self.re_filter(pattern, self.ss(selector))
 
-    def s_re(self, selector: str, pattern: str) -> Node | None:
+    def s_re(self, selector: str, pattern: str) -> LexborNode | None:
         return self.first(self.ss_re(selector, pattern))
 
-    def ss_in(self, selector: str, from_: Node | None) -> list[Node]:
+    def ss_in(self, selector: str, from_: LexborNode | None) -> list[LexborNode]:
         return [] if from_ is None else from_.css(selector)
 
-    def s_in(self, selector: str, from_: Node | None) -> Node | None:
+    def s_in(self, selector: str, from_: LexborNode | None) -> LexborNode | None:
         return self.first(self.ss_in(selector, from_))
 
-    def ss_re_in(self, selector: str, pattern: str, from_: Node | None) -> list[Node]:
+    def ss_re_in(self, selector: str, pattern: str, from_: LexborNode | None) -> list[LexborNode]:
         return self.re_filter(pattern, self.ss_in(selector, from_))
 
-    def s_re_in(self, selector: str, pattern: str, from_: Node | None) -> Node | None:
+    def s_re_in(self, selector: str, pattern: str, from_: LexborNode | None) -> LexborNode | None:
         return self.first(self.ss_re_in(selector, pattern, from_))
 
-    def next(self, node: Node | None) -> Node | None:
-        return None if node is None else node.next
+    def nxt(self, selector: str, node: LexborNode | None) -> LexborNode | None:
+        if node is None:
+            return None
+        cur: LexborNode | None = node.next
+        while cur is not None:
+            if cur.is_element_node and cur.css_matches(selector):
+                return cur
+            cur = cur.next
+        return None
 
-    def text(self, node: Node | None) -> str | None:
+    def txt(self, node: LexborNode | None) -> str | None:
         if node is None:
             return None
         return node.text(strip=True)
 
-    def attr(self, attr_name: str, node: Node | None) -> str | None:
+    def attr(self, attr_name: str, node: LexborNode | None) -> str | None:
         if node is None:
             return None
         return a.strip() if (a := node.attributes.get(attr_name)) else a
@@ -169,16 +180,6 @@ class FromHere:
 
 def sleep_between(a: float, b: float) -> None:
     time.sleep(random.uniform(a, b))
-
-T = TypeVar('T')
-def parallel(max_workers: int | None = None):
-    def decorator(fn: Callable[[T], dict | None]) -> Callable[[Iterable[T]], list[dict]]:
-        def wrapper(items: Iterable[T]) -> list[dict]:
-            with ProcessPoolExecutor(max_workers=max_workers) as executor:
-                results = list(executor.map(fn, items))
-            return [r for r in results if r is not None]
-        return wrapper
-    return decorator
 
 def append_csv(path: Path | str, row: dict) -> None:
     p = Path(path)

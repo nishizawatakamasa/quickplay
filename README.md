@@ -9,7 +9,7 @@ quickplayはPlaywrightとselectolaxをベースにしたスクレイピングユ
 - **SelectParser** — selectolax `HTMLParser` のラッパー。ローカル抽出用。
 - **browse()** — Playwright（Chromium）起動ランナー。
 - **browse_camoufox()** — Camoufox（Firefox）起動ランナー。bot検知対策向け。
-- その他ユーティリティ — FromHere, sleep_between, parallel, append_csv, write_csv, hash_name, save_html
+- その他ユーティリティ — FromHere, sleep_between, append_csv, write_csv, hash_name, save_html
 
 ## Requirements - 必要条件
 
@@ -63,7 +63,7 @@ uv run camoufox fetch
 
 ## Quick Reference - 主要メソッド一覧
 
-### PlayPage のメソッド（スクレイピング中に使用）
+### PlayPage のメソッド
 
 - **`ss(selector: str) -> list[ElementHandle]`**  
   指定したCSSセレクタにマッチする**すべての要素**をリストで返します。  
@@ -88,6 +88,14 @@ uv run camoufox fetch
 - **`goto(url: str | None) -> bool`**  
   指定したURLに移動します。成功すれば `True`、失敗すれば `False` を返します。  
   _例:_ `if p.goto('https://example.com'): ...`
+
+### SelectParser のメソッド
+
+- **`nxt(self, selector: str, node: LexborNode | None) -> LexborNode | None`**  
+  ノードから、セレクタに一致する最初の弟ノードを取得します。  
+
+- **`txt(self, node: LexborNode | None) -> str | None`**  
+  ノードからテキスト内容を(子孫ノードまで全て含め)取得します（前後の空白は除去されます）。  
 
 ### ユーティリティ関数
 
@@ -244,47 +252,18 @@ fh = FromHere(__file__)
 p = SelectParser()
 
 df = pd.read_csv(fh('outurlhtml.csv'))
-for url, path in zip(df['URL'], df['HTML']):
+results = []
+for i, (url, path) in enumerate(zip(df['URL'], df['HTML']), 1):
+    print(i)
     if not p.load(path):
         continue
-    append_csv(fh('outhtml.csv'), {
+    results.append({
         'URL': url,
-        '教室名': p.text(p.s('h1 .text02')),
-        '住所': p.text(p.s('.item .mapText')),
+        '教室名': p.txt(p.s('h1 .text02')),
+        '住所': p.txt(p.s('.item .mapText')),
+        '所在地': p.txt(p.nxt('dd', p.s_re('dt', r'所在地'))),
     })
-    print(f'{url}')
-```
-
-## 保存済みHTMLから並列スクレイピングしてCSVに出力する
-
-```python
-import pandas as pd
-
-from quickplay import *
-
-fh = FromHere(__file__)
-
-def scrape():
-    df = pd.read_csv(fh('outurlhtml.csv'))
-    write_csv(
-        fh('outhtml.csv'),
-        extract(zip(df['URL'], df['HTML']))
-    )
-
-@parallel(max_workers=4)
-def extract(item):
-    p = SelectParser()
-    url, path = item
-    if not p.load(fh('html') / path):
-        return None
-    return {
-        'URL': url,
-        '教室名': p.text(p.s('h1 .text02')),
-        '住所': p.text(p.s('.item .mapText')),
-    }
-
-if __name__ == '__main__':
-    scrape()
+write_csv(fh('outhtml.csv'), results)
 ```
 
 ## License - ライセンス

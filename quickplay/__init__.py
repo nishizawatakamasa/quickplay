@@ -3,7 +3,6 @@ from .quickplay import (
     SelectParser,
     FromHere,
     sleep_between,
-    parallel,
     append_csv,
     write_csv,
     hash_name,
