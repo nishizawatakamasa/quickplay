@@ -8,4 +8,5 @@ from .quickplay import (
     hash_name,
     save_html,
     browse,
+    browse_camoufox,
 )
