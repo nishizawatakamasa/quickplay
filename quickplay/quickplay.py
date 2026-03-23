@@ -1,3 +1,4 @@
+import gzip
 import hashlib
 import random
 import re
@@ -113,6 +114,15 @@ class SelectParser:
     def parser(self) -> LexborHTMLParser | None:
         return self._parser
 
+    def load_gz(self, html_path: Path | str) -> bool:
+        try:
+            text = gzip.decompress(Path(html_path).read_bytes()).decode('utf-8')
+            self._parser = LexborHTMLParser(text)
+            return True
+        except Exception as e:
+            print(f"[load_gz error] {html_path} {type(e).__name__}: {e}")
+            return False
+
     def load(self, html_path: Path | str) -> bool:
         try:
             self._parser = LexborHTMLParser(Path(html_path).read_text(encoding='utf-8'))
@@ -200,6 +210,14 @@ def write_csv(path: Path | str, rows: list[dict]) -> None:
 
 def hash_name(key: str) -> str:
     return hashlib.md5(key.encode()).hexdigest()
+
+def save_html_gz(filepath: Path, html: str) -> bool:
+    try:
+        Path(filepath).write_bytes(gzip.compress(html.encode('utf-8'), compresslevel=6))
+        return True
+    except Exception as e:
+        print(f'{type(e).__name__}: {e}')
+        return False
 
 def save_html(filepath: Path, html: str) -> bool:
     try:
