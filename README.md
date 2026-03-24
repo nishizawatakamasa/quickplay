@@ -9,12 +9,13 @@ quickplayはPlaywrightとselectolaxをベースにしたスクレイピングユ
 - **SelectParser** — selectolax `HTMLParser` のラッパー。ローカル抽出用。
 - **browse()** — Playwright（Chromium）起動ランナー。
 - **browse_camoufox()** — Camoufox（Firefox）起動ランナー。bot検知対策向け。
-- その他ユーティリティ — FromHere, sleep_between, append_csv, write_csv, hash_name, save_html
+- その他ユーティリティ — FromHere, sleep_between, append_csv, write_parquet, hash_name, save_html
 
 ## Requirements - 必要条件
 
 - Python 3.12 or higher
 - Libraries: playwright, selectolax, pandas, camoufox（自動インストール）
+- `write_parquet` を使う場合は pandas の Parquet エンジンとして `pyarrow`（または `fastparquet`）が必要です。
 - Browser binaries（別途インストールが必要）
 
 ## Installation - インストール
@@ -106,6 +107,10 @@ uv run camoufox fetch
 - **`append_csv(path: Path | str, row: dict) -> None`**  
   `dict` 形式のデータを1行としてCSVファイルに追記します。ファイルが存在しない場合はヘッダーも自動で書き込みます。  
   _例:_ `append_csv('data.csv', {'name': '太郎', 'age': 20})`
+
+- **`write_parquet(path: Path | str, rows: list[dict]) -> None`**  
+  `dict` のリストを1つの Parquet ファイルに書き出します。  
+  _例:_ `write_parquet('data.parquet', [{'name': '太郎', 'age': 20}])`
 
 - **`browse(fn: Callable[[Page], None], ...) -> None`**  
   Playwrightのブラウザを起動し、引数で渡した関数を実行します。`headless` や `user_agent` などのオプションを指定できます。  
@@ -229,6 +234,8 @@ def scrape(page):
         if not p.goto(url):
             continue
         sleep_between(1, 2)
+        if not p.wait('#logo', timeout=10000):
+            continue
         file_name = f'{hash_name(url)}.html'
         if not save_html(fh('html') / file_name, page.content()):
             continue
@@ -241,7 +248,7 @@ if __name__ == '__main__':
     browse(scrape, block_resources={'image'})
 ```
 
-## Scrape from local HTML files - 保存済みHTMLからスクレイピングしてCSVに出力する
+## Scrape from local HTML files - 保存済みHTMLからスクレイピングしてParquetに出力する
 
 ```python
 import pandas as pd
@@ -255,7 +262,7 @@ df = pd.read_csv(fh('outurlhtml.csv'))
 results = []
 for i, (url, path) in enumerate(zip(df['URL'], df['HTML']), 1):
     print(i)
-    if not p.load(path):
+    if not p.load(fh('html') / path):
         continue
     results.append({
         'URL': url,
@@ -263,7 +270,7 @@ for i, (url, path) in enumerate(zip(df['URL'], df['HTML']), 1):
         '住所': p.txt(p.s('.item .mapText')),
         '所在地': p.txt(p.nxt('dd', p.s_re('dt', r'所在地'))),
     })
-write_csv(fh('outhtml.csv'), results)
+write_parquet(fh('outhtml.parquet'), results)
 ```
 
 ## License - ライセンス

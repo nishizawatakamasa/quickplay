@@ -191,13 +191,6 @@ def append_csv(path: Path | str, row: dict) -> None:
         encoding='utf-8-sig',
     )
 
-def write_csv(path: Path | str, rows: list[dict]) -> None:
-    pd.DataFrame(rows).to_csv(
-        Path(path),
-        index=False,
-        encoding='utf-8-sig',
-    )
-
 def write_parquet(path: Path | str, rows: list[dict]) -> None:
     pd.DataFrame(rows).to_parquet(
         Path(path),

@@ -4,7 +4,7 @@ from .quickplay import (
     FromHere,
     sleep_between,
     append_csv,
-    write_csv,
+    write_parquet,
     hash_name,
     save_html,
     browse,
