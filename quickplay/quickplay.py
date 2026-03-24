@@ -198,6 +198,12 @@ def write_csv(path: Path | str, rows: list[dict]) -> None:
         encoding='utf-8-sig',
     )
 
+def write_parquet(path: Path | str, rows: list[dict]) -> None:
+    pd.DataFrame(rows).to_parquet(
+        Path(path),
+        index=False,
+    )
+
 def hash_name(key: str) -> str:
     return hashlib.md5(key.encode()).hexdigest()
 
