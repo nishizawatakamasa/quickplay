@@ -21,7 +21,18 @@ class PlayPage:
         return elems[0] if elems else None
 
     def re_filter(self, pattern: str, elems: list[ElementHandle]) -> list[ElementHandle]:
-        return [elem for elem in elems if (t := self.text(elem)) is not None and re.search(pattern, ud.normalize('NFKC', t))]
+        texts = self._page.evaluate("""
+        els => els.map(el => {
+            if (!el || !el.isConnected) return null;
+            const t = el.textContent;
+            return t ? t.normalize('NFKC').trim() : null;
+        })
+        """, elems)
+        prog = re.compile(pattern)
+        return [
+            e for e, t in zip(elems, texts)
+            if t and prog.search(t)
+        ]
 
     def ss(self, selector: str) -> list[ElementHandle]:
         return self._page.query_selector_all(selector)
@@ -125,7 +136,8 @@ class SelectParser:
         return nodes[0] if nodes else None
 
     def re_filter(self, pattern: str, nodes: list[LexborNode]) -> list[LexborNode]:
-        return [n for n in nodes if (t := self.txt(n)) is not None and re.search(pattern, ud.normalize('NFKC', t))]
+        prog = re.compile(pattern)
+        return [n for n in nodes if (t := self.txt(n)) is not None and prog.search(ud.normalize('NFKC', t))]
 
     def ss(self, selector: str) -> list[LexborNode]:
         return self._parser.css(selector) if self._parser else []
