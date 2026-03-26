@@ -224,13 +224,14 @@ from quickplay import *
 fh = FromHere(__file__)
 
 def scrape(page):
+    ctx = {}
     p = PlayPage(page)
     p.goto('https://www.foobarbaz1.jp')
 
-    item_urls = [p.url(e) for e in p.ss('ul.items > li > a')]
+    ctx['アイテムURLs'] = [p.url(e) for e in p.ss('ul.items > li > a')]
 
-    for i, url in enumerate(item_urls, 1):
-        print(f'{i}/{len(item_urls)} item_urls')
+    for i, url in enumerate(ctx['アイテムURLs'], 1):
+        print(f'{i}/{len(ctx['アイテムURLs'])} アイテムURLs')
         if not p.goto(url):
             continue
         sleep_between(1, 2)
