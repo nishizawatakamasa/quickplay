@@ -1,11 +1,11 @@
 [project]
 name = "quickplay"
-version = "1.2.8"
+version = "1.2.9"
 description = "Add your description here"
 readme = "README.md"
 requires-python = ">=3.12"
 dependencies = [
-    "playwright>=1.40",
+    "patchright>=1.40",
     "selectolax>=0.3",
     "pandas>=2.0",
     "pyarrow>=14.0",

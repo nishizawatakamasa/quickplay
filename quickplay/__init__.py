@@ -7,6 +7,6 @@ from .quickplay import (
     write_parquet,
     hash_name,
     save_html,
-    browse,
+    browse_patchright,
     browse_camoufox,
 )

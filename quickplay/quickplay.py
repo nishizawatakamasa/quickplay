@@ -9,7 +9,7 @@ from urllib.parse import urljoin, urlsplit, urlunsplit
 
 import pandas as pd
 from camoufox.sync_api import Camoufox
-from playwright.sync_api import sync_playwright, Page, ElementHandle, Route
+from patchright.sync_api import sync_playwright, Page, ElementHandle, Route
 from selectolax.lexbor import LexborHTMLParser, LexborNode
 
 
@@ -220,56 +220,33 @@ def save_html(filepath: Path, html: str) -> bool:
         print(f'{type(e).__name__}: {e}')
         return False
 
-def browse(
+def browse_patchright(
     fn: Callable[[Page], None],
     *,
-    headless: bool = False,
-    channel: str = 'chrome',
-    viewport: dict | None = {'width': 1920, 'height': 1080},
-    user_agent: str | None = None,
-    accept_language: str | None = 'ja-JP,ja;q=0.9',
+    user_data_dir: str | Path,
     timeout: int = 15000,
-    block_resources: set[str] | None = None,
 ) -> None:
-    context_kwargs: dict = {}
-    if viewport is not None:
-        context_kwargs['viewport'] = viewport
-    if user_agent is not None:
-        context_kwargs['user_agent'] = user_agent
-    if accept_language is not None:
-        context_kwargs['extra_http_headers'] = {'Accept-Language': accept_language}
     with sync_playwright() as pw:
-        with pw.chromium.launch(headless=headless, channel=channel) as browser:
-            with browser.new_context(**context_kwargs) as context:
-                page = context.new_page()
-                page.set_default_timeout(timeout)
-                if block_resources:
-                    def handler(route: Route) -> None:
-                        if route.request.resource_type in block_resources:
-                            route.abort()
-                        else:
-                            route.continue_()
-                    page.route('**/*', handler)
-                fn(page)
+        with pw.chromium.launch_persistent_context(
+            user_data_dir=str(user_data_dir),
+            channel='chrome',
+            headless=False,
+            no_viewport=True,
+        ) as context:
+            page = context.new_page()
+            page.set_default_timeout(timeout)
+            fn(page)
 
 def browse_camoufox(
     fn: Callable[[Page], None],
     *,
-    headless: bool | Literal['virtual'] = False,
-    locale: str | list[str] | None = 'ja-JP,ja',
-    humanize: bool | float = True,
-    block_images: bool = False,
-    disable_coop: bool = False,
+    locale: str | list[str] = 'ja-JP,ja',
     timeout: int = 15000,
-    **kwargs,
 ) -> None:
     with Camoufox(
-        headless=headless,
+        headless=False,
+        humanize=True,
         locale=locale,
-        humanize=humanize,
-        block_images=block_images,
-        disable_coop=disable_coop,
-        **kwargs,
     ) as browser:
         page = browser.new_page()
         page.set_default_timeout(timeout)
