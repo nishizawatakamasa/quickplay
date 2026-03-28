@@ -121,12 +121,9 @@ uv run camoufox fetch
   def browse_patchright(
       # scrape(page) のような関数を渡す。
       fn: Callable[[Page], None],
-      *,
       # 'C:\Users\あなたのユーザ名\AppData\Local\Google\Chrome\User Data'のような文字列。
       # chrome://version/で確認できる。
       user_data_dir: str | Path,
-      # デフォルトタイムアウト（ミリ秒）。
-      timeout: int = 15000,
   ) -> None:
   ```
 
@@ -138,12 +135,9 @@ uv run camoufox fetch
   def browse_camoufox(
       # scrape(page) のような関数を渡す。
       fn: Callable[[Page], None],
-      *,
       # ブラウザのロケール（言語・地域設定）を指定
       # 英語サイト中心なら `'en-US,en'` への変更を検討
       locale: str | list[str] | None = 'ja-JP,ja',
-      # デフォルトタイムアウト（ミリ秒）。
-      timeout: int = 15000,
   ) -> None:
   ```
 
@@ -153,6 +147,7 @@ uv run camoufox fetch
 from quickplay import *
 
 fh = FromHere(__file__)
+add_log_file(fh('log/scraping.log'))
 
 def scrape(page):
     p = PlayPage(page)
@@ -196,6 +191,7 @@ if __name__ == '__main__':
 from quickplay import *
 
 fh = FromHere(__file__)
+add_log_file(fh('log/scraping.log'))
 
 def scrape(page):
     ctx = {}
@@ -234,6 +230,7 @@ import pandas as pd
 from quickplay import *
 
 fh = FromHere(__file__)
+add_log_file(fh('log/scraping.log'))
 p = SelectParser()
 
 df = pd.read_csv(fh('outurlhtml.csv'))

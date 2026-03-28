@@ -3,13 +3,14 @@ import random
 import re
 import time
 import unicodedata as ud
+from loguru import logger
 from pathlib import Path
-from typing import Callable, Literal
+from typing import Callable
 from urllib.parse import urljoin, urlsplit, urlunsplit
 
 import pandas as pd
 from camoufox.sync_api import Camoufox
-from patchright.sync_api import sync_playwright, Page, ElementHandle, Route
+from patchright.sync_api import sync_playwright, Page, ElementHandle
 from selectolax.lexbor import LexborHTMLParser, LexborNode
 
 
@@ -89,31 +90,33 @@ class PlayPage:
         url = urlunsplit(parts)
         return url
 
-    def goto(self, url: str | None, retry: int = 3) -> bool:
-        if not url:
+    def goto(self, url: str | None, try_cnt: int = 3) -> bool:
+        if not url or try_cnt < 1:
             return False
-        for i in range(retry):
+        for i in range(try_cnt):
             try:
                 if (res := self._page.goto(url)) is not None:
                     if res.ok:
                         return True
                     if 400 <= res.status < 500:
+                        logger.error(f"[goto] {url} | HTTP {res.status}")
                         return False
                     reason = f"status: {res.status}"
                 else:
                     reason = "response is None"
             except Exception as e:
                 reason = f"{type(e).__name__}: {e}"
-            print(f"[goto] {url} ({i+1}/{retry}) {reason}")
-            if i + 1 < retry:
+            logger.warning(f"[goto] {url} ({i+1}/{try_cnt}) {reason}")
+            if i + 1 < try_cnt:
                 time.sleep(random.uniform(3, 5))
+        logger.error(f"[goto] giving up: {url}")
         return False
 
     def wait(self, selector: str, timeout: int = 15000) -> ElementHandle | None:
         try:
             return self._page.wait_for_selector(selector, timeout=timeout)
         except Exception as e:
-            print(f'{type(e).__name__}: {e}')
+            logger.warning(f"[wait] selector={selector!r} not found | url={self._page.url}")
             return None
 
 class SelectParser:
@@ -129,7 +132,7 @@ class SelectParser:
             self._parser = LexborHTMLParser(Path(html_path).read_text(encoding='utf-8'))
             return True
         except Exception as e:
-            print(f"[load error] {html_path} {type(e).__name__}: {e}")
+            logger.error(f"[load] {html_path} {type(e).__name__}: {e}")
             return False
 
     def first(self, nodes: list[LexborNode]) -> LexborNode | None:
@@ -217,14 +220,15 @@ def save_html(filepath: Path, html: str) -> bool:
         filepath.write_text(html, encoding="utf-8", errors="replace")
         return True
     except Exception as e:
-        print(f'{type(e).__name__}: {e}')
+        logger.error(f"[save_html] {filepath} {type(e).__name__}: {e}")
         return False
+
+def add_log_file(path: Path | str) -> None:
+    logger.add(Path(path), level="WARNING", encoding="utf-8")
 
 def browse_patchright(
     fn: Callable[[Page], None],
-    *,
     user_data_dir: str | Path,
-    timeout: int = 15000,
 ) -> None:
     with sync_playwright() as pw:
         with pw.chromium.launch_persistent_context(
@@ -234,14 +238,11 @@ def browse_patchright(
             no_viewport=True,
         ) as context:
             page = context.new_page()
-            page.set_default_timeout(timeout)
             fn(page)
 
 def browse_camoufox(
     fn: Callable[[Page], None],
-    *,
     locale: str | list[str] = 'ja-JP,ja',
-    timeout: int = 15000,
 ) -> None:
     with Camoufox(
         headless=False,
@@ -249,5 +250,4 @@ def browse_camoufox(
         locale=locale,
     ) as browser:
         page = browser.new_page()
-        page.set_default_timeout(timeout)
         fn(page)
